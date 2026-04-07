@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Merge Macro</title>
+    <style>
+        :root { --accent: #0b6ab8; --bg: #121212; --card: #1e1e1e; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: var(--bg); color: #e0e0e0; display: flex; justify-content: center; padding: 20px; }
+        .container { background: var(--card); padding: 30px; border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); width: 100%; max-width: 600px; border: 1px solid #333; }
+        h2 { color: var(--accent); margin-top: 0; text-align: center; letter-spacing: 1px; }
+        .input-group { margin-bottom: 20px; }
+        label { display: block; margin-bottom: 8px; font-size: 0.9rem; color: #aaa; }
+        input[type="file"] { width: 100%; padding: 10px; background: #252525; border: 1px dashed #444; border-radius: 6px; color: #fff; cursor: pointer; }
+        button { 
+            width: 100%; padding: 14px; border: none; border-radius: 6px; font-weight: bold; font-size: 1rem; cursor: pointer;
+            transition: all 0.3s; background: var(--accent); color: #000; margin-top: 10px;
+        }
+        button:hover { background: #2a1586; transform: translateY(-2px); box-shadow: 0 5px 15px rgba(49, 89, 219, 0.3); }
+        button:disabled { background: #444; cursor: not-allowed; transform: none; }
+        #status { margin-top: 20px; font-family: monospace; font-size: 0.85rem; padding: 10px; background: #000; border-radius: 4px; color: #2b612b; min-height: 20px; }
+        .download-link { display: none; text-align: center; margin-top: 20px; padding: 15px; border: 1px solid var(--accent); border-radius: 6px; color: var(--accent); text-decoration: none; font-weight: bold; }
+        .download-link:hover { background: rgba(0,255,157,0.1); }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>Merge Macro</h2>
+    <p style="font-size: 0.8rem; color: #777; text-align: center;"></p>
+    
+    <div class="input-group">
+        <label>P1 Macro:</label>
+        <input type="file" id="p1" accept=".txt">
+    </div>
+
+    <div class="input-group">
+        <label>P2 Macro:</label>
+        <input type="file" id="p2" accept=".txt">
+    </div>
+
+    <button id="btnProcesar">Merge Macro</button>
+    <div id="status">Waiting for files...</div>
+    <a id="downloadLink" class="download-link">Merged Macro</a>
+</div>
+
+<script>
+    const $ = id => document.getElementById(id);
+    
+    $('btnProcesar').onclick = async () => {
+        const file1 = $('p1').files[0];
+        const file2 = $('p2').files[0];
+
+        if (!file1 || !file2) {
+            $('status').innerText = "Error: There are no files.";
+            return;
+        }
+
+        $('status').innerText = "Reading files...";
+        $('btnProcesar').disabled = true;
+
+        try {
+            // Leer ambos archivos en paralelo
+            const [text1, text2] = await Promise.all([file1.text(), file2.text()]);
+            
+            $('status').innerText = "loading data...";
+
+            // Función para limpiar y extraer datos
+            const parseData = (text) => {
+                return text.split(/\r?\n/)
+                    .map(line => line.trim())
+                    .filter(line => /^\d+\s+\d+\s+\d+/.test(line)) // Solo líneas con 3 grupos de números
+                    .map(line => {
+                        const parts = line.split(/\s+/);
+                        return { 
+                            ts: parseInt(parts[0]), // Timestamp para ordenar
+                            content: line 
+                        };
+                    });
+            };
+
+            const data1 = parseData(text1);
+            const data2 = parseData(text2);
+
+            // Unir y ordenar numéricamente por la primera columna
+            const merged = [...data1, ...data2].sort((a, b) => a.ts - b.ts);
+
+            // Opcional: Mantener el encabezado '2584' si existía
+            const finalContent = "2584\n" + merged.map(item => item.content).join('\n');
+
+            // Crear link de descarga
+            const blob = new Blob([finalContent], { type: 'text/plain' });
+            const url = URL.createObjectURL(blob);
+            
+            $('status').innerText = `Done! Merged.`;
+            $('downloadLink').href = url;
+            $('downloadLink').download = "Merge Macro.txt";
+            $('downloadLink').style.display = "block";
+
+        } catch (err) {
+            $('status').innerText = "Error" + err.message;
+        } finally {
+            $('btnProcesar').disabled = false;
+        }
+    };
+</script>
+
+</body>
+</html>
